@@ -1,0 +1,132 @@
+# OPC UA IMM Robot Simulation Configuration
+
+# Application Configuration
+application:
+  name: "OPC UA IMM Robot Simulation"
+  version: "1.0.0"
+  mode: "simulation"  # simulation | production | test
+
+# OPC UA Server Configuration
+opcua:
+  # Molding Machine Server
+  molding-machine:
+    enabled: true
+    host: "localhost"
+    port: 4840
+    endpoint: "opc.tcp://localhost:4840"
+    namespace:
+      index: 1
+      uri: "http://opcua.imm.simulation/moldingmachine"
+
+    # Node IDs
+    nodes:
+      base-object-id: 20
+      status-node-id: 100
+      hello-variable-id: 21
+      string-variable-id: 33
+      hello-method-id: 2004
+      open-mold-method-id: 2005
+
+  # Robot Server
+  robot:
+    enabled: true
+    host: "localhost"
+    port: 4050
+    endpoint: "opc.tcp://localhost:4050"
+    namespace:
+      index: 1
+      uri: "http://opcua.imm.simulation/robot"
+
+    # Node IDs
+    nodes:
+      status-node-id: 200
+
+  # Client Configuration
+  client:
+    connection-timeout-ms: 5000
+    reconnect-attempts: 3
+    reconnect-delay-ms: 2000
+    subscription-interval-ms: 500
+    request-timeout-ms: 3000
+
+# State Machine Timing Configuration (in seconds)
+timing:
+  molding-machine:
+    closing-duration: 2
+    molding-duration: 2
+    opening-duration: 2
+    robot-wait-timeout: 30
+
+  robot:
+    move-in-duration: 5
+    grab-duration: 5
+    move-out-duration: 5
+    release-duration: 5
+    ready-delay: 1
+
+# Threading Configuration
+threading:
+  core-pool-size: 4
+  max-pool-size: 10
+  keep-alive-seconds: 60
+  queue-capacity: 100
+  shutdown-timeout-seconds: 30
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    controller: DEBUG
+    molding: DEBUG
+    roboticArm: DEBUG
+    communication: DEBUG
+    open62Wrap: WARN
+
+  file:
+    enabled: true
+    path: "logs"
+    name: "opcua-simulation.log"
+    max-size: "10MB"
+    max-history: 30
+    total-size-cap: "1GB"
+
+# Monitoring Configuration
+monitoring:
+  enabled: true
+  metrics-interval-seconds: 10
+  health-check-interval-seconds: 30
+
+# Security Configuration
+security:
+  enabled: false  # Set to true in production
+  certificate-path: "certs/server-cert.der"
+  private-key-path: "certs/server-key.der"
+  trust-list-path: "certs/trusted"
+
+  # Security policies: None, Basic128Rsa15, Basic256, Basic256Sha256
+  security-policy: "None"
+
+  # Security modes: None, Sign, SignAndEncrypt
+  security-mode: "None"
+
+# Simulation Configuration
+simulation:
+  auto-start: true
+  continuous-mode: true
+  max-cycles: -1  # -1 for infinite
+  cycle-delay-ms: 0
+
+  # Failure simulation (for testing resilience)
+  failure-injection:
+    enabled: false
+    failure-rate: 0.01  # 1% failure rate
+    types:
+      - "connection-timeout"
+      - "state-transition-error"
+
+# Development Configuration
+development:
+  hot-reload: false
+  debug-mode: false
+  verbose-logging: false
+  mock-opcua: false  # Use mock OPC UA for testing without native library
