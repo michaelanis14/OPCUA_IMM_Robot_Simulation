@@ -4,8 +4,11 @@ package controller;
 import open62Wrap.*;
 import roboticArm.RoboticArm;
 import roboticArm.ArmTrigger;
+import config.ConfigurationManager;
+import config.TimingConfig;
+import util.ExecutorServiceManager;
 
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 
@@ -30,6 +33,12 @@ public class RobotController extends RoboticArm {
 	static RobotController robotController;
 	String serverUrl = "opc.tcp://localhost:4840";
 	int subId;
+
+	// Shared executor service for scheduling state transitions
+	private final ScheduledExecutorService executor;
+
+	// Timing configuration for robot state machine
+	private final TimingConfig.RobotTiming timing;
 
 	/**
 	 * Extending for the Client API Base to implement the callback methods form the
@@ -170,6 +179,10 @@ public class RobotController extends RoboticArm {
 	 * This the Robot controller constructor
 	 */
 	public RobotController() {
+		// Initialize shared executor and timing configuration
+		this.executor = ExecutorServiceManager.getInstance().getScheduledExecutor();
+		this.timing = ConfigurationManager.getInstance().getTimingConfig().getRobot();
+
 		System.out.println("Start");
 		//serverAPI = new ServerAPIBase();
 		server = ServerAPIBase.CreateServer("localhost", 4050);
@@ -226,14 +239,10 @@ public class RobotController extends RoboticArm {
 		System.out.println("moveIn in Mold" + robotController.getCurrentState());
 		ServerAPIBase.WriteVariable(server, robotStatusNodeID, robotController.getCurrentState());
 
-		ScheduledThreadPoolExecutor exec = new ScheduledThreadPoolExecutor(1);
-		exec.schedule(new Runnable() {
-			public void run() {
-				fireTrigger(ArmTrigger.GRAB);
-
-			}
-		}, 5, TimeUnit.SECONDS);
-
+		// Use shared executor instead of creating new one (prevents memory leak!)
+		executor.schedule(() -> {
+			fireTrigger(ArmTrigger.GRAB);
+		}, timing.getMoveInDuration(), TimeUnit.SECONDS);
 	}
 
 	/**
@@ -246,16 +255,10 @@ public class RobotController extends RoboticArm {
 		System.out.println("moveOut  Mold " + robotController.getCurrentState());
 		ServerAPIBase.WriteVariable(server, robotStatusNodeID, robotController.getCurrentState());
 
-		ScheduledThreadPoolExecutor exec = new ScheduledThreadPoolExecutor(1);
-
-		exec.schedule(new Runnable() {
-			public void run() {
-				fireTrigger(ArmTrigger.RELEASE);
-
-			}
-		}, 5, TimeUnit.SECONDS);
-		// ClientAPIBase.clientWriteValue(client, statusNodeID, 1);
-
+		// Use shared executor instead of creating new one (prevents memory leak!)
+		executor.schedule(() -> {
+			fireTrigger(ArmTrigger.RELEASE);
+		}, timing.getMoveOutDuration(), TimeUnit.SECONDS);
 	}
 
 	/**
@@ -267,14 +270,11 @@ public class RobotController extends RoboticArm {
 		super.grab();
 		System.out.println("grab in Mold " + robotController.getCurrentState());
 		ServerAPIBase.WriteVariable(server, robotStatusNodeID, robotController.getCurrentState());
-		ScheduledThreadPoolExecutor exec = new ScheduledThreadPoolExecutor(1);
-		exec.schedule(new Runnable() {
-			public void run() {
-				fireTrigger(ArmTrigger.MOVE_OUT);
 
-			}
-		}, 5, TimeUnit.SECONDS);
-
+		// Use shared executor instead of creating new one (prevents memory leak!)
+		executor.schedule(() -> {
+			fireTrigger(ArmTrigger.MOVE_OUT);
+		}, timing.getGrabDuration(), TimeUnit.SECONDS);
 	}
 
 	/**
@@ -286,15 +286,11 @@ public class RobotController extends RoboticArm {
 		super.release();
 		System.out.println("release out Mold " + robotController.getCurrentState());
 		ServerAPIBase.WriteVariable(server, robotStatusNodeID, robotController.getCurrentState());
-		ScheduledThreadPoolExecutor exec = new ScheduledThreadPoolExecutor(1);
 
-		exec.schedule(new Runnable() {
-			public void run() {
-				fireTrigger(ArmTrigger.READY);
-
-			}
-		}, 5, TimeUnit.SECONDS);
-
+		// Use shared executor instead of creating new one (prevents memory leak!)
+		executor.schedule(() -> {
+			fireTrigger(ArmTrigger.READY);
+		}, timing.getReleaseDuration(), TimeUnit.SECONDS);
 	}
 
 	/**

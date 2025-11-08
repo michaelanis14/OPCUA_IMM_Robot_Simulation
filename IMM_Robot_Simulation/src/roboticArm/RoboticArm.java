@@ -11,57 +11,67 @@ import static roboticArm.ArmTrigger.*;
  * State machine model for the Robotic Arm.
  * Manages state transitions and lifecycle of robot operations.
  *
+ * THREAD SAFETY: This class uses instance-based state (not static) and
+ * synchronized methods to ensure thread-safe state transitions.
+ *
  * @author Michael Bishara
  */
 public class RoboticArm {
 
 	private static final Logger logger = LoggerFactory.getLogger(RoboticArm.class);
 
-	static int currentState;
+	// Instance-based state (NOT static) to prevent race conditions between instances
+	private volatile int currentState;
+
+	// Lock object for synchronized state transitions
+	private final Object stateLock = new Object();
 
 	public RoboticArm() {
-		currentState = READY.ordinal();
+		this.currentState = READY.ordinal();
 		logger.info("RoboticArm initialized in READY state");
 	}
 
 	/**
 	 * Fires a state transition trigger.
+	 * Thread-safe: uses synchronized block to prevent race conditions.
 	 *
 	 * @param trigger the trigger to fire
 	 */
 	public void fireTrigger(ArmTrigger trigger) {
-		String previousState = getCurrentStateName();
-		logger.debug("Firing trigger: {} from state: {}", trigger, previousState);
+		synchronized (stateLock) {
+			String previousState = getCurrentStateName();
+			logger.debug("Firing trigger: {} from state: {}", trigger, previousState);
 
-		switch (trigger) {
-		case MOVE_IN:
-			currentState = MOVE_IN.ordinal();
-			logger.info("State transition: {} -> MOVE_IN", previousState);
-			moveIn();
-			break;
-		case GRAB:
-			currentState = GRAB.ordinal();
-			logger.info("State transition: {} -> GRAB", previousState);
-			grab();
-			break;
-		case MOVE_OUT:
-			currentState = MOVE_OUT.ordinal();
-			logger.info("State transition: {} -> MOVE_OUT", previousState);
-			moveOut();
-			break;
-		case RELEASE:
-			currentState = RELEASE.ordinal();
-			logger.info("State transition: {} -> RELEASE", previousState);
-			release();
-			break;
-		case READY:
-			currentState = READY.ordinal();
-			logger.info("State transition: {} -> READY", previousState);
-			ready();
-			break;
-		default:
-			logger.warn("Invalid or unsupported trigger: {}", trigger);
-			break;
+			switch (trigger) {
+			case MOVE_IN:
+				currentState = MOVE_IN.ordinal();
+				logger.info("State transition: {} -> MOVE_IN", previousState);
+				moveIn();
+				break;
+			case GRAB:
+				currentState = GRAB.ordinal();
+				logger.info("State transition: {} -> GRAB", previousState);
+				grab();
+				break;
+			case MOVE_OUT:
+				currentState = MOVE_OUT.ordinal();
+				logger.info("State transition: {} -> MOVE_OUT", previousState);
+				moveOut();
+				break;
+			case RELEASE:
+				currentState = RELEASE.ordinal();
+				logger.info("State transition: {} -> RELEASE", previousState);
+				release();
+				break;
+			case READY:
+				currentState = READY.ordinal();
+				logger.info("State transition: {} -> READY", previousState);
+				ready();
+				break;
+			default:
+				logger.warn("Invalid or unsupported trigger: {}", trigger);
+				break;
+			}
 		}
 	}
 

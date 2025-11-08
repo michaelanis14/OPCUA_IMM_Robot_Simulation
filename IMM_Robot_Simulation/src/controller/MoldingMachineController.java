@@ -2,13 +2,16 @@ package controller;
 
 import open62Wrap.*;
 
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import communication.Communication;
 import communication.utils.RequestedNodePair;
+import config.ConfigurationManager;
+import config.TimingConfig;
 import molding.MoldingMachine;
 import molding.MoldingTrigger;
+import util.ExecutorServiceManager;
 
 /**
  * This is the controller class for the MoldingMachine where the logic shall be
@@ -25,6 +28,12 @@ public class MoldingMachineController extends MoldingMachine {
 	UA_NodeId statusNodeID;
 	static MoldingMachineController mMController;
 	// static MoldingMachine_OPCUA mMachine_OPCUA;
+
+	// Shared executor service for scheduling state transitions
+	private final ScheduledExecutorService executor;
+
+	// Timing configuration for state machine
+	private final TimingConfig.MoldingMachineTiming timing;
 
 	/**
 	 * Extending for the Client API Base to implement the callback methods form the
@@ -106,6 +115,9 @@ public class MoldingMachineController extends MoldingMachine {
 	 * This the MoldingMachine controller constructor
 	 */
 	public MoldingMachineController() {
+		// Initialize shared executor and timing configuration
+		this.executor = ExecutorServiceManager.getInstance().getScheduledExecutor();
+		this.timing = ConfigurationManager.getInstance().getTimingConfig().getMoldingMachine();
 
 		MoldingMachine_OPCUA opcuaM = new MoldingMachine_OPCUA();
 
@@ -227,14 +239,12 @@ public class MoldingMachineController extends MoldingMachine {
 	public String injectMold() {
 		super.injectMold();
 		ServerAPIBase.WriteVariable(server, statusNodeID, mMController.getCurrentState());
-		ScheduledThreadPoolExecutor exec = new ScheduledThreadPoolExecutor(1);
 
-		exec.schedule(new Runnable() {
-			public void run() {
-				fireTrigger(MoldingTrigger.OPENING);
+		// Use shared executor instead of creating new one (prevents memory leak!)
+		executor.schedule(() -> {
+			fireTrigger(MoldingTrigger.OPENING);
+		}, timing.getMoldingDuration(), TimeUnit.SECONDS);
 
-			}
-		}, 2, TimeUnit.SECONDS);
 		return "injectMold";
 	}
 
@@ -247,16 +257,13 @@ public class MoldingMachineController extends MoldingMachine {
 		super.openMold();
 
 		ServerAPIBase.WriteVariable(server, statusNodeID, mMController.getCurrentState());
-		ScheduledThreadPoolExecutor exec = new ScheduledThreadPoolExecutor(1);
 
-		exec.schedule(new Runnable() {
-			public void run() {
-				fireTrigger(MoldingTrigger.ROBOT);
+		// Use shared executor instead of creating new one (prevents memory leak!)
+		executor.schedule(() -> {
+			fireTrigger(MoldingTrigger.ROBOT);
+		}, timing.getOpeningDuration(), TimeUnit.SECONDS);
 
-			}
-		}, 2, TimeUnit.SECONDS);
 		return "openMold";
-
 	}
 
 	/**
@@ -268,16 +275,12 @@ public class MoldingMachineController extends MoldingMachine {
 		super.closeMold();
 		ServerAPIBase.WriteVariable(server, statusNodeID, mMController.getCurrentState());
 
-		ScheduledThreadPoolExecutor exec = new ScheduledThreadPoolExecutor(1);
+		// Use shared executor instead of creating new one (prevents memory leak!)
+		executor.schedule(() -> {
+			fireTrigger(MoldingTrigger.MOLDING);
+		}, timing.getClosingDuration(), TimeUnit.SECONDS);
 
-		exec.schedule(new Runnable() {
-			public void run() {
-				fireTrigger(MoldingTrigger.MOLDING);
-
-			}
-		}, 2, TimeUnit.SECONDS);
 		return "closeMold";
-
 	}
 
 	/**
